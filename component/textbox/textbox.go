@@ -1,15 +1,17 @@
 package textbox
 
 import (
+	"fmt"
 	ui "github.com/gizak/termui/v3"
 	"github.com/sqshq/sampler/component"
 	"github.com/sqshq/sampler/config"
 	"github.com/sqshq/sampler/console"
 	"github.com/sqshq/sampler/data"
 	"image"
+	"regexp"
+	"strconv"
 )
 
-// TextBox represents a component with regular text
 type TextBox struct {
 	*ui.Block
 	*data.Consumer
@@ -46,13 +48,58 @@ func NewTextBox(c config.TextBoxConfig, palette console.Palette) *TextBox {
 	return &box
 }
 
+// Regex para capturar secuencias de escape ANSI
+var ansiColorRegex = regexp.MustCompile(`\033\[(\d+);(\d+);(\d+)m`)
+
+// Función para interpretar y convertir el código de color ANSI en ui.Style
+func parseANSIColorCode(text string, defaultStyle ui.Style) ([]ui.Cell, error) {
+	matches := ansiColorRegex.FindAllStringIndex(text, -1)
+	cells := []ui.Cell{}
+
+	lastIndex := 0
+	for _, match := range matches {
+		if lastIndex < match[0] {
+			cells = append(cells, ui.ParseStyles(text[lastIndex:match[0]], defaultStyle)...)
+		}
+
+		// Parseamos los valores RGB de ANSI
+		params := ansiColorRegex.FindStringSubmatch(text[match[0]:match[1]])
+		r, _ := strconv.Atoi(params[1])
+		g, _ := strconv.Atoi(params[2])
+		b, _ := strconv.Atoi(params[3])
+
+		// Configuramos el nuevo estilo
+		newStyle := ui.NewStyle(ui.ColorRGB(uint8(r), uint8(g), uint8(b)))
+
+		// El texto tras el código de color
+		end := match[1]
+		nextTextStart := match[1]
+		for nextTextStart < len(text) && text[nextTextStart] != '\033' {
+			nextTextStart++
+		}
+		cells = append(cells, ui.ParseStyles(text[end:nextTextStart], newStyle)...)
+		lastIndex = nextTextStart
+	}
+
+	// Agrega el texto restante
+	if lastIndex < len(text) {
+		cells = append(cells, ui.ParseStyles(text[lastIndex:], defaultStyle)...)
+	}
+
+	return cells, nil
+}
+
 func (t *TextBox) Draw(buffer *ui.Buffer) {
 
 	t.Block.Draw(buffer)
 
-	cells := ui.ParseStyles(t.text, ui.Theme.Paragraph.Text)
-	cells = ui.WrapCells(cells, uint(t.Inner.Dx()-2))
+	cells, err := parseANSIColorCode(t.text, t.style)
+	if err != nil {
+		fmt.Println("Error parsing colors:", err)
+		return
+	}
 
+	cells = ui.WrapCells(cells, uint(t.Inner.Dx()-2))
 	rows := ui.SplitCells(cells, '\n')
 
 	for y, row := range rows {
@@ -62,7 +109,6 @@ func (t *TextBox) Draw(buffer *ui.Buffer) {
 		row = ui.TrimCells(row, t.Inner.Dx()-2)
 		for _, cx := range ui.BuildCellWithXArray(row) {
 			x, cell := cx.X, cx.Cell
-			cell.Style = t.style
 			buffer.SetCell(cell, image.Pt(x+1, y+1).Add(t.Inner.Min))
 		}
 	}
