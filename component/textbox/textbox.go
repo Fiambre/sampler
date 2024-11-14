@@ -9,7 +9,6 @@ import (
 	"github.com/sqshq/sampler/data"
 	"image"
 	"regexp"
-	"strconv"
 )
 
 type TextBox struct {
