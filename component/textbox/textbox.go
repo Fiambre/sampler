@@ -53,25 +53,34 @@ var ansiColorRegex = regexp.MustCompile(`\033\[(\d+);(\d+);(\d+)m`)
 
 // Función para interpretar y convertir el código de color ANSI en ui.Style
 func parseANSIColorCode(text string, defaultStyle ui.Style) ([]ui.Cell, error) {
-	matches := ansiColorRegex.FindAllStringIndex(text, -1)
 	cells := []ui.Cell{}
 
+	// Solo como ejemplo: mapeo ANSI a colores básicos
+	// Puedes agregar otros colores según necesites
+	colorMap := map[string]ui.Color{
+		"31": ui.ColorRed,
+		"32": ui.ColorGreen,
+		"33": ui.ColorYellow,
+		"34": ui.ColorBlue,
+		"35": ui.ColorMagenta,
+		"36": ui.ColorCyan,
+	}
+
 	lastIndex := 0
+	matches := ansiColorRegex.FindAllStringIndex(text, -1)
 	for _, match := range matches {
 		if lastIndex < match[0] {
 			cells = append(cells, ui.ParseStyles(text[lastIndex:match[0]], defaultStyle)...)
 		}
 
-		// Parseamos los valores RGB de ANSI
-		params := ansiColorRegex.FindStringSubmatch(text[match[0]:match[1]])
-		r, _ := strconv.Atoi(params[1])
-		g, _ := strconv.Atoi(params[2])
-		b, _ := strconv.Atoi(params[3])
+		colorCode := ansiColorRegex.FindStringSubmatch(text[match[0]:match[1]])[1]
+		color, exists := colorMap[colorCode]
+		if !exists {
+			color = defaultStyle.Fg
+		}
 
-		// Configuramos el nuevo estilo
-		newStyle := ui.NewStyle(ui.ColorRGB(uint8(r), uint8(g), uint8(b)))
-
-		// El texto tras el código de color
+		// Aplicamos el nuevo estilo de color encontrado
+		newStyle := ui.NewStyle(color)
 		end := match[1]
 		nextTextStart := match[1]
 		for nextTextStart < len(text) && text[nextTextStart] != '\033' {
@@ -81,7 +90,6 @@ func parseANSIColorCode(text string, defaultStyle ui.Style) ([]ui.Cell, error) {
 		lastIndex = nextTextStart
 	}
 
-	// Agrega el texto restante
 	if lastIndex < len(text) {
 		cells = append(cells, ui.ParseStyles(text[lastIndex:], defaultStyle)...)
 	}
