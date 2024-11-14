@@ -51,6 +51,8 @@ func (t *TextBox) Draw(buffer *ui.Buffer) {
 	t.Block.Draw(buffer)
 
 	//cells := ui.ParseStyles(t.text, ui.Theme.Paragraph.Text)
+	cells := []ui.Cell{}
+	cells = append(cells, ui.ParseStyles(text[lastIndex:], defaultStyle)...)
 	cells = ui.WrapCells(cells, uint(t.Inner.Dx()-2))
 
 	rows := ui.SplitCells(cells, '\n')
