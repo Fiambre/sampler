@@ -48,7 +48,7 @@ func NewTextBox(c config.TextBoxConfig, palette console.Palette) *TextBox {
 }
 
 // Regex para capturar las etiquetas de color personalizadas
-var colorTagRegex = regexp.MustCompile(`\[COLOR:(\w+)\](.*?)\[/COLOR\]`)
+var colorTagRegex = regexp.MustCompile(`(?s)\[COLOR:(\w+)\](.*?)\[/COLOR\]`)
 
 // Función para interpretar y convertir las etiquetas de color personalizadas en ui.Style
 func parseColorTags(text string, defaultStyle ui.Style) ([]ui.Cell, error) {
